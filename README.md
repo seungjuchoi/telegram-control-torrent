@@ -1,2 +1,2 @@
-# telegram-control-deluge
-Telegram Bot can control Torrent system(Deluge) on Raspberry pi2
+# telegram-control-transmission
+Telegram Bot can control Torrent system(transmission)
