@@ -1,2 +1,2 @@
-# telegram-control-transmission
-Telegram Bot can control Torrent system(transmission)
+# telegram-control-torrent
+Telegram Bot can control Torrent system(deluge, transmission)
