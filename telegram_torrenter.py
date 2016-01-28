@@ -8,6 +8,105 @@ from telepot.delegate import per_chat_id, create_open
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
+
+################################################################################
+# 
+# Configurations
+# 
+TOKEN = '' # please input your Telegram Bot API Token
+VALID_USERS = [] # please input your telegram-id
+AGENT_TYPE = 'deluge' #deluge or transmission
+
+################################################################################
+# 
+# Transmission only
+#  Do not touch if you want to use default values
+TRANSMISSION_USER = ''
+TRANSMISSION_PASSWORD = ''
+TRANSMISSION_PORT = ''
+
+################################################################################
+# 
+# DelugeAgent
+# 
+#  apt-get install deluge-console (for debian, ubuntu)
+# 
+class DelugeAgent:
+    def downloadFromMagnet(self, magnet):
+        os.system("deluge-console add " + magnet)
+
+    def getCurrentList(self):
+        return os.popen('deluge-console info').read()
+
+    def filterCompletedList(self, result):
+        outString = ''
+        resultlist = result.split('\n \n')
+        completedlist = []
+        for entry in resultlist:
+            title = entry[entry.index('Name:')+6:entry.index('ID:')-1]
+            status = entry[entry.index('State:')+7:entry.index('Speed:')-1]
+            progress = ''
+            if status == 'Seeding Up':
+                completedlist.append(entry[entry.index('ID:')+4:entry.index('State:')-1])
+            elif status == 'Downloading Down':
+                progress = entry[entry.index('Progress:')+10:entry.index('% [')+1]
+            outString += '이름: '+title+'\n' + '상태:' + status + '\n'
+            if progress:
+                outString += '진행율:' + progress + '\n'
+            outString += '\n'
+        return (outString, completedlist)
+
+    def removeFromList(self, id):
+        os.system("deluge-console del " + id)
+
+
+################################################################################
+# 
+# TransmissionAgent
+# 
+#  apt-get install transmission-cli (for debian, ubuntu)
+# 
+class TransmissionAgent:
+    def __init__(self):
+        transmissionCmd = 'transmission-remote '
+        if TRANSMISSION_USER:
+            transmissionCmd = transmissionCmd + '-n ' + TRANSMISSION_USER
+            if TRANSMISSION_PASSWORD:
+                transmissionCmd = transmissionCmd + ':' + TRANSMISSION_PASSWORD
+            transmissionCmd = transmissionCmd + ' '
+        if TRANSMISSION_PORT:
+            transmissionCmd = transmissionCmd + '-p ' + TRANSMISSION_PORT + ' '
+        self.transmissionCmd = transmissionCmd
+
+    def downloadFromMagnet(self, magnet):
+        os.system(self.transmissionCmd + '-a ' + magnet)
+
+    def getCurrentList(self):
+        return os.popen(self.transmissionCmd + '-l').read()
+
+    def filterCompletedList(self, result):
+        outString = ''
+        resultlist = result.split('\n')
+        titlelist = resultlist[0]
+        resultlist = resultlist[1:-2]
+        completedlist = []
+        for entry in resultlist:
+            title = entry[titlelist.index('Name'):].strip()
+            status = entry[titlelist.index('Status'):titlelist.index('Name')-1].strip()
+            progress = entry[titlelist.index('Done'):titlelist.index('Done')+4].strip()
+            if progress == '100%':
+                titleid = entry[titlelist.index('ID'):titlelist.index('Done')-1].strip()
+                completedlist.append(titleid)
+            outString += '이름: '+title+'\n' + '상태:' + status + '\n'
+            if progress:
+                outString += '진행율:' + progress + '\n'
+            outString += '\n'
+        return (outString, completedlist)
+
+    def removeFromList(self, id):
+        os.system(self.transmissionCmd + '-t '+ id + ' -r')
+
+
 class Torrenter(telepot.helper.ChatHandler):
     YES = '1. OK'
     NO = '2. NO'
@@ -21,14 +120,21 @@ class Torrenter(telepot.helper.ChatHandler):
     GREETING = "Hello! May I Help You?"
     SubtitlesLocation = '' # please input your subtitle location to save subtitle files
 
-
     mode =''
     navi = feedparser.FeedParserDict()
-    validUser = [] # please input your telegram-id
     completedlist = []
 
     def __init__(self, seed_tuple, timeout):
         super(Torrenter, self).__init__(seed_tuple, timeout)
+        self.agent = self.createAgent(AGENT_TYPE) 
+
+    def createAgent(self, agentType):
+        if agentType == 'deluge':
+            return DelugeAgent()
+        if agentType == 'transmission':
+            return TransmissionAgent()
+        raise('invalid torrent client')
+        return None
 
     def open(self, initial_msg, seed):
         self.menu()
@@ -81,7 +187,8 @@ class Torrenter(telepot.helper.ChatHandler):
         print ("index", index)
         magnet = self.navi.entries[index].link
         print ("magnet", magnet)
-        os.system("deluge-console add " + magnet)
+        #os.system("deluge-console add " + magnet)
+        self.agent.downloadFromMagnet(magnet)
         self.sender.sendMessage('다운로드를 시작합니다.')
         self.navi.clear()
         self.menu()
@@ -90,25 +197,15 @@ class Torrenter(telepot.helper.ChatHandler):
         self.mode=''
         self.sender.sendMessage('토렌트 리스트를 확인중..')
         outString = ''
-        result = os.popen('deluge-console info').read()
+        #result = os.popen('deluge-console info').read()
+        result = self.agent.getCurrentList()
         if not result:
             self.sender.sendMessage('진행중인 토렌트가 없습니다.')
             self.menu()
             return
-        resultlist = result.split('\n \n')
-        self.completedlist = []
-        for entry in resultlist:
-            title = entry[entry.index('Name:')+6:entry.index('ID:')-1]
-            status = entry[entry.index('State:')+7:entry.index('Speed:')-1]
-            progress = ''
-            if status == 'Seeding Up':
-                self.completedlist.append(entry[entry.index('ID:')+4:entry.index('State:')-1])
-            elif status == 'Downloading Down':
-                progress = entry[entry.index('Progress:')+10:entry.index('% [')+1]
-            outString += '이름: '+title+'\n' + '상태:' + status + '\n'
-            if progress:
-                outString += '진행율:' + progress + '\n'
-            outString += '\n'
+        (outString, completedlist) = self.agent.filterCompletedList(result)
+        self.completedlist = completedlist
+
         self.sender.sendMessage(outString)
         self.yes_or_no('완료된 항목을 리스트에서 정리하시겠습니까?')
         self.mode = self.MENU2_1
@@ -118,7 +215,7 @@ class Torrenter(telepot.helper.ChatHandler):
         if command == self.YES:
             self.sender.sendMessage('정리중..')
             for id in self.completedlist:
-                os.system("deluge-console del " + id)
+                self.agent.removeFromList(id)
             self.sender.sendMessage('완료')
         elif command == self.NO:
             self.sender.sendMessage('홈으로 갑니다.')
@@ -148,7 +245,7 @@ class Torrenter(telepot.helper.ChatHandler):
     def on_message(self, msg):
         content_type, chat_type, chat_id = telepot.glance2(msg)
         #Check ID
-        if not chat_id in self.validUser:
+        if not chat_id in VALID_USERS:
             print("Permission Denied")
             return
 
@@ -169,8 +266,6 @@ class Torrenter(telepot.helper.ChatHandler):
         self.sender.sendMessage('인식하지 못했습니다')
     def on_close(self, exception):
         pass
-
-TOKEN = '' # please input your Telegram Bot API Token
 
 bot = telepot.DelegatorBot(TOKEN, [
     (per_chat_id(), create_open(Torrenter, timeout=120)),
