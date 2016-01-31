@@ -4,26 +4,11 @@ import os
 import feedparser
 import telepot
 import subprocess
+import json
 from telepot.delegate import per_chat_id, create_open
 reload(sys)
 sys.setdefaultencoding('utf-8')
-
-
-################################################################################
-# 
-# Configurations
-# 
-TOKEN = '' # please input your Telegram Bot API Token
-VALID_USERS = [] # please input your telegram-id
-AGENT_TYPE = 'deluge' #deluge or transmission
-
-################################################################################
-# 
-# Transmission only
-#  Do not touch if you want to use default values
-TRANSMISSION_USER = ''
-TRANSMISSION_PASSWORD = ''
-TRANSMISSION_PORT = ''
+CONFIG_FILE = 'setting.json'
 
 ################################################################################
 # 
@@ -106,7 +91,12 @@ class TransmissionAgent:
     def removeFromList(self, id):
         os.system(self.transmissionCmd + '-t '+ id + ' -r')
 
-
+################################################################################
+#
+# Main Torrenter
+#
+#  Messange Handler for Telegram Bot
+#
 class Torrenter(telepot.helper.ChatHandler):
     YES = '1. OK'
     NO = '2. NO'
@@ -126,7 +116,7 @@ class Torrenter(telepot.helper.ChatHandler):
 
     def __init__(self, seed_tuple, timeout):
         super(Torrenter, self).__init__(seed_tuple, timeout)
-        self.agent = self.createAgent(AGENT_TYPE) 
+        self.agent = self.createAgent(AGENT_TYPE)
 
     def createAgent(self, agentType):
         if agentType == 'deluge':
@@ -267,6 +257,32 @@ class Torrenter(telepot.helper.ChatHandler):
     def on_close(self, exception):
         pass
 
+def parseConfig(filename):
+    f = open(filename, 'r')
+    js = json.loads(f.read())
+    f.close()
+    return js
+
+def getConfig(config):
+    global TOKEN
+    global AGENT_TYPE
+    global VALID_USERS
+    TOKEN = config['common']['token']
+    AGENT_TYPE = config['common']['agent_type']
+    VALID_USERS = config['common']['valid_users']
+    if AGENT_TYPE == 'transmission':
+        global transmission_user
+        global transmission_password
+        global transmission_port
+        TRANSMISSION_USER = config['for_transmission']['transmission_user']
+        TRANSMISSION_PASSWORD = config['for_transmission']['transmission_password']
+        TRANSMISSION_PORT = config['for_transmission']['transmission_port']
+
+config = parseConfig(CONFIG_FILE)
+if not bool(config):
+    print ("Err: Setting file is not found")
+    exit()
+getConfig(config)
 bot = telepot.DelegatorBot(TOKEN, [
     (per_chat_id(), create_open(Torrenter, timeout=120)),
 ])
