@@ -104,10 +104,9 @@ class Torrenter(telepot.helper.ChatHandler):
     MENU1 = '1. 토렌트 검색'
     MENU1_1 = '키워드 받기'
     MENU1_2 = '토렌트 선택'
-    MENU2 = '2. 토렌트 진행 현황'
-    MENU2_1 = '완료된 토렌트 비우기'
+    MENU2 = '2. 토렌트 리스트'
     rssUrl = """https://torrentkim1.net/bbs/rss.php?k="""
-    GREETING = "Hello! May I Help You?"
+    GREETING = "안녕하세요. 메뉴를 선택해주세요."
     SubtitlesLocation = '' # please input your subtitle location to save subtitle files
 
     mode =''
@@ -140,7 +139,7 @@ class Torrenter(telepot.helper.ChatHandler):
 
     def tor_get_keyword(self):
         self.mode = self.MENU1_1
-        self.sender.sendMessage('원하는 키워드를 입력하세요.')
+        self.sender.sendMessage('검색 키워드를 입력하세요.')
 
     def put_menu_button(self, l):
         menulist = [self.MENU0]
@@ -197,18 +196,14 @@ class Torrenter(telepot.helper.ChatHandler):
         self.completedlist = completedlist
 
         self.sender.sendMessage(outString)
-        self.yes_or_no('완료된 항목을 리스트에서 정리하시겠습니까?')
-        self.mode = self.MENU2_1
+        self.tor_del_list()
 
-    def tor_del_list(self, command):
+    def tor_del_list(self):
         self.mode=''
-        if command == self.YES:
-            self.sender.sendMessage('정리중..')
-            for id in self.completedlist:
-                self.agent.removeFromList(id)
-            self.sender.sendMessage('완료')
-        elif command == self.NO:
-            self.sender.sendMessage('홈으로 갑니다.')
+        self.sender.sendMessage('완료된 항목을 자동 정리중..')
+        for id in self.completedlist:
+            self.agent.removeFromList(id)
+        self.sender.sendMessage('완료')
         self.menu()
 
     def handle_command(self, command):
@@ -222,8 +217,6 @@ class Torrenter(telepot.helper.ChatHandler):
             self.tor_search(command)
         elif self.mode == self.MENU1_2: # Download Torrent
             self.tor_download(command)
-        elif self.mode == self.MENU2_1: # Del Torrent
-            self.tor_del_list(command)
 
     def handle_smi(self, file_id, file_name):
         try:
