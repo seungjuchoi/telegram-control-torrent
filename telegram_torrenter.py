@@ -1,4 +1,4 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import sys
 import os
 import feedparser
@@ -6,9 +6,11 @@ import telepot
 import subprocess
 import json
 from telepot.delegate import per_chat_id, create_open
+
 reload(sys)
 sys.setdefaultencoding('utf-8')
 CONFIG_FILE = 'setting.json'
+
 
 ################################################################################
 # 
@@ -28,14 +30,14 @@ class DelugeAgent:
         resultlist = result.split('\n \n')
         completedlist = []
         for entry in resultlist:
-            title = entry[entry.index('Name:')+6:entry.index('ID:')-1]
-            status = entry[entry.index('State:')+7:entry.index('Speed:')-1]
+            title = entry[entry.index('Name:') + 6:entry.index('ID:') - 1]
+            status = entry[entry.index('State:') + 7:entry.index('Speed:') - 1]
             progress = ''
             if status == 'Seeding Up':
-                completedlist.append(entry[entry.index('ID:')+4:entry.index('State:')-1])
+                completedlist.append(entry[entry.index('ID:') + 4:entry.index('State:') - 1])
             elif status == 'Downloading Down':
-                progress = entry[entry.index('Progress:')+10:entry.index('% [')+1]
-            outString += '이름: '+title+'\n' + '상태:' + status + '\n'
+                progress = entry[entry.index('Progress:') + 10:entry.index('% [') + 1]
+            outString += '이름: ' + title + '\n' + '상태:' + status + '\n'
             if progress:
                 outString += '진행율:' + progress + '\n'
             outString += '\n'
@@ -77,19 +79,20 @@ class TransmissionAgent:
         completedlist = []
         for entry in resultlist:
             title = entry[titlelist.index('Name'):].strip()
-            status = entry[titlelist.index('Status'):titlelist.index('Name')-1].strip()
-            progress = entry[titlelist.index('Done'):titlelist.index('Done')+4].strip()
+            status = entry[titlelist.index('Status'):titlelist.index('Name') - 1].strip()
+            progress = entry[titlelist.index('Done'):titlelist.index('Done') + 4].strip()
             if progress == '100%':
-                titleid = entry[titlelist.index('ID'):titlelist.index('Done')-1].strip()
+                titleid = entry[titlelist.index('ID'):titlelist.index('Done') - 1].strip()
                 completedlist.append(titleid)
-            outString += '이름: '+title+'\n' + '상태:' + status + '\n'
+            outString += '이름: ' + title + '\n' + '상태:' + status + '\n'
             if progress:
                 outString += '진행율:' + progress + '\n'
             outString += '\n'
         return (outString, completedlist)
 
     def removeFromList(self, id):
-        os.system(self.transmissionCmd + '-t '+ id + ' -r')
+        os.system(self.transmissionCmd + '-t ' + id + ' -r')
+
 
 ################################################################################
 #
@@ -107,9 +110,9 @@ class Torrenter(telepot.helper.ChatHandler):
     MENU2 = '2. 토렌트 리스트'
     rssUrl = """https://torrentkim1.net/bbs/rss.php?k="""
     GREETING = "안녕하세요. 메뉴를 선택해주세요."
-    SubtitlesLocation = '' # please input your subtitle location to save subtitle files
+    SubtitlesLocation = ''  # please input your subtitle location to save subtitle files
 
-    mode =''
+    mode = ''
     navi = feedparser.FeedParserDict()
     completedlist = []
 
@@ -122,14 +125,14 @@ class Torrenter(telepot.helper.ChatHandler):
             return DelugeAgent()
         if agentType == 'transmission':
             return TransmissionAgent()
-        raise('invalid torrent client')
+        raise ('invalid torrent client')
         return None
 
     def open(self, initial_msg, seed):
         self.menu()
 
     def menu(self):
-        mode =''
+        mode = ''
         show_keyboard = {'keyboard': [[self.MENU1], [self.MENU2], [self.MENU0]]}
         self.sender.sendMessage(self.GREETING, reply_markup=show_keyboard)
 
@@ -146,20 +149,20 @@ class Torrenter(telepot.helper.ChatHandler):
         l.append(menulist)
         return l
 
-    def tor_search(self,keyword):
-        self.mode=''
+    def tor_search(self, keyword):
+        self.mode = ''
         self.sender.sendMessage('토렌트 검색중..')
-        self.navi = feedparser.parse(self.rssUrl+keyword)
+        self.navi = feedparser.parse(self.rssUrl + keyword)
 
         outList = []
         if not self.navi.entries:
             self.sender.sendMessage('검색결과가 없습니다. 다시 입력하세요.')
-            self.mode=self.MENU1_1
+            self.mode = self.MENU1_1
             return
 
-        for (i,entry) in enumerate(self.navi.entries):
+        for (i, entry) in enumerate(self.navi.entries):
             if i == 10: break
-            title = str(i+1) + ". " + entry.title
+            title = str(i + 1) + ". " + entry.title
 
             templist = []
             templist.append(title)
@@ -167,26 +170,26 @@ class Torrenter(telepot.helper.ChatHandler):
 
         show_keyboard = {'keyboard': self.put_menu_button(outList)}
         self.sender.sendMessage('아래에서 선택하세요.', reply_markup=show_keyboard)
-        self.mode=self.MENU1_2
+        self.mode = self.MENU1_2
 
     def tor_download(self, selected):
-        self.mode=''
-        print ("tor_sel")
+        self.mode = ''
+        print("tor_sel")
         index = int(selected.split('.')[0]) - 1
-        print ("index", index)
+        print("index", index)
         magnet = self.navi.entries[index].link
-        print ("magnet", magnet)
-        #os.system("deluge-console add " + magnet)
+        print("magnet", magnet)
+        # os.system("deluge-console add " + magnet)
         self.agent.downloadFromMagnet(magnet)
         self.sender.sendMessage('다운로드를 시작합니다.')
         self.navi.clear()
         self.menu()
 
     def tor_show_list(self):
-        self.mode=''
+        self.mode = ''
         self.sender.sendMessage('토렌트 리스트를 확인중..')
         outString = ''
-        #result = os.popen('deluge-console info').read()
+        # result = os.popen('deluge-console info').read()
         result = self.agent.getCurrentList()
         if not result:
             self.sender.sendMessage('진행중인 토렌트가 없습니다.')
@@ -199,7 +202,7 @@ class Torrenter(telepot.helper.ChatHandler):
         self.tor_del_list()
 
     def tor_del_list(self):
-        self.mode=''
+        self.mode = ''
         self.sender.sendMessage('완료된 항목을 자동 정리중..')
         for id in self.completedlist:
             self.agent.removeFromList(id)
@@ -213,21 +216,23 @@ class Torrenter(telepot.helper.ChatHandler):
             self.tor_get_keyword()
         elif command == self.MENU2:
             self.tor_show_list()
-        elif self.mode == self.MENU1_1: # Get Keyword
+        elif self.mode == self.MENU1_1:  # Get Keyword
             self.tor_search(command)
-        elif self.mode == self.MENU1_2: # Download Torrent
+        elif self.mode == self.MENU1_2:  # Download Torrent
             self.tor_download(command)
 
     def handle_smi(self, file_id, file_name):
         try:
             bot.downloadFile(file_id, self.SubtitlesLocation + file_name)
-        except Exception as inst: print inst
+        except Exception as inst:
+            print
+        inst
         self.sender.sendMessage('자막 파일을 저장했습니다.')
         pass
 
     def on_message(self, msg):
         content_type, chat_type, chat_id = telepot.glance2(msg)
-        #Check ID
+        # Check ID
         if not chat_id in VALID_USERS:
             print("Permission Denied")
             return
@@ -245,16 +250,19 @@ class Torrenter(telepot.helper.ChatHandler):
             self.sender.sendMessage('인식할 수 없는 파일입니다.')
             return
 
-        print ("E")
+        print("E")
         self.sender.sendMessage('인식하지 못했습니다')
+
     def on_close(self, exception):
         pass
+
 
 def parseConfig(filename):
     f = open(filename, 'r')
     js = json.loads(f.read())
     f.close()
     return js
+
 
 def getConfig(config):
     global TOKEN
@@ -271,9 +279,10 @@ def getConfig(config):
         TRANSMISSION_PASSWORD = config['for_transmission']['transmission_password']
         TRANSMISSION_PORT = config['for_transmission']['transmission_port']
 
+
 config = parseConfig(CONFIG_FILE)
 if not bool(config):
-    print ("Err: Setting file is not found")
+    print("Err: Setting file is not found")
     exit()
 getConfig(config)
 bot = telepot.DelegatorBot(TOKEN, [
