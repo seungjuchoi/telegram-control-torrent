@@ -1,23 +1,15 @@
-# -*- coding: utf-8 -*-
 import sys
 import os
 import feedparser
 import telepot
-import subprocess
 import json
+from urllib import parse
+
 from telepot.delegate import per_chat_id, create_open
 
-reload(sys)
-sys.setdefaultencoding('utf-8')
 CONFIG_FILE = 'setting.json'
 
 
-################################################################################
-# 
-# DelugeAgent
-# 
-#  apt-get install deluge-console (for debian, ubuntu)
-# 
 class DelugeAgent:
     def downloadFromMagnet(self, magnet):
         os.system("deluge-console add " + magnet)
@@ -47,12 +39,6 @@ class DelugeAgent:
         os.system("deluge-console del " + id)
 
 
-################################################################################
-# 
-# TransmissionAgent
-# 
-#  apt-get install transmission-cli (for debian, ubuntu)
-# 
 class TransmissionAgent:
     def __init__(self):
         transmissionCmd = 'transmission-remote '
@@ -94,12 +80,6 @@ class TransmissionAgent:
         os.system(self.transmissionCmd + '-t ' + id + ' -r')
 
 
-################################################################################
-#
-# Main Torrenter
-#
-#  Messange Handler for Telegram Bot
-#
 class Torrenter(telepot.helper.ChatHandler):
     YES = '1. OK'
     NO = '2. NO'
@@ -110,7 +90,7 @@ class Torrenter(telepot.helper.ChatHandler):
     MENU2 = '2. 토렌트 리스트'
     rssUrl = """https://torrentkim1.net/bbs/rss.php?k="""
     GREETING = "안녕하세요. 메뉴를 선택해주세요."
-    SubtitlesLocation = ''  # please input your subtitle location to save subtitle files
+    SubtitlesLocation = ''  # Option: Input your subtitle location to save subtitle files,
 
     mode = ''
     navi = feedparser.FeedParserDict()
@@ -152,7 +132,7 @@ class Torrenter(telepot.helper.ChatHandler):
     def tor_search(self, keyword):
         self.mode = ''
         self.sender.sendMessage('토렌트 검색중..')
-        self.navi = feedparser.parse(self.rssUrl + keyword)
+        self.navi = feedparser.parse(self.rssUrl + parse.quote(keyword))
 
         outList = []
         if not self.navi.entries:
@@ -174,12 +154,8 @@ class Torrenter(telepot.helper.ChatHandler):
 
     def tor_download(self, selected):
         self.mode = ''
-        print("tor_sel")
         index = int(selected.split('.')[0]) - 1
-        print("index", index)
         magnet = self.navi.entries[index].link
-        print("magnet", magnet)
-        # os.system("deluge-console add " + magnet)
         self.agent.downloadFromMagnet(magnet)
         self.sender.sendMessage('다운로드를 시작합니다.')
         self.navi.clear()
@@ -223,22 +199,22 @@ class Torrenter(telepot.helper.ChatHandler):
 
     def handle_smi(self, file_id, file_name):
         try:
-            bot.downloadFile(file_id, self.SubtitlesLocation + file_name)
+            self.sender.sendMessage('자막 저장중..')
+            bot.download_file(file_id, self.SubtitlesLocation + file_name)
         except Exception as inst:
-            print
-        inst
+            self.sender.sendMessage('오류: {0}'.format(inst))
+            return
         self.sender.sendMessage('자막 파일을 저장했습니다.')
-        pass
 
     def on_message(self, msg):
-        content_type, chat_type, chat_id = telepot.glance2(msg)
+        content_type, chat_type, chat_id = telepot.glance(msg)
         # Check ID
         if not chat_id in VALID_USERS:
             print("Permission Denied")
             return
 
         if content_type is 'text':
-            self.handle_command(unicode(msg['text']))
+            self.handle_command(msg['text'])
             return
 
         if content_type is 'document':
@@ -250,7 +226,6 @@ class Torrenter(telepot.helper.ChatHandler):
             self.sender.sendMessage('인식할 수 없는 파일입니다.')
             return
 
-        print("E")
         self.sender.sendMessage('인식하지 못했습니다')
 
     def on_close(self, exception):
@@ -288,4 +263,4 @@ getConfig(config)
 bot = telepot.DelegatorBot(TOKEN, [
     (per_chat_id(), create_open(Torrenter, timeout=120)),
 ])
-bot.notifyOnMessage(run_forever=True)
+bot.message_loop(run_forever=True)
