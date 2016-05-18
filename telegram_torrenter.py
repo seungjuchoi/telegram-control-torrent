@@ -4,97 +4,84 @@ import feedparser
 import telepot
 import json
 from urllib import parse
-
+from apscheduler.schedulers.background import BackgroundScheduler
 from telepot.delegate import per_chat_id, create_open
 
 CONFIG_FILE = 'setting.json'
 
 
 class DelugeAgent:
+    def __init__(self, sender):
+        self.STATUS_SEED = 'Seeding'
+        self.STATUS_DOWN = 'Downloading'
+        self.STATUS_ERR = 'Error'  # Need Verification
+        self.sender = sender
+
     def downloadFromMagnet(self, magnet):
         os.system("deluge-console add " + magnet)
 
     def getCurrentList(self):
         return os.popen('deluge-console info').read()
 
-    def filterCompletedList(self, result):
-        outString = ''
-        resultlist = result.split('\n \n')
-        completedlist = []
-        for entry in resultlist:
+    def printElement(self, e):
+        outString = '이름: ' + e['title'] + '\n' + '상태:' + e['status'] + '\n'
+        outString += '진행율: ' + e['progress'] + '\n'
+        outString += '\n'
+        return outString
+
+    def parseList(self, result):
+        if not result:
+            return
+        outList = []
+        for entry in result.split('\n \n'):
             title = entry[entry.index('Name:') + 6:entry.index('ID:') - 1]
-            status = entry[entry.index('State:') + 7:entry.index('Speed:') - 1]
-            progress = ''
-            if status == 'Seeding Up':
-                completedlist.append(entry[entry.index('ID:') + 4:entry.index('State:') - 1])
-            elif status == 'Downloading Down':
+            status = entry[entry.index('State:'):].split(' ')[1]
+            id = entry[entry.index('ID:') + 4:entry.index('State:') - 1]
+            if status == self.STATUS_DOWN:
                 progress = entry[entry.index('Progress:') + 10:entry.index('% [') + 1]
-            outString += '이름: ' + title + '\n' + '상태:' + status + '\n'
-            if progress:
-                outString += '진행율:' + progress + '\n'
-            outString += '\n'
-        return (outString, completedlist)
+            else:
+                progress = '0.00%'
+            element = {'title': title, 'status': status, 'id': id, 'progress': progress}
+            outList.append(element)
+        return outList
+
+    def check_torrents(self):
+        currentList = self.getCurrentList()
+        outList = self.parseList(currentList)
+        if not bool(outList):
+            self.sender.sendMessage('토렌트 리스트는 현재 비어 있습니다.')
+            scheduler.remove_all_jobs()
+            return
+        for e in outList:
+            if e['status'] == self.STATUS_SEED:
+                self.sender.sendMessage('다운로드 완료: {0}'.format(e['title']))
+                print("DBG: S check_torrents: SEED")
+                self.removeFromList(e['id'])
+            elif e['status'] == self.STATUS_ERR:
+                print("DBG: S check_torrents: ERR")
+                self.sender.sendMessage('오류로 다운로드 중지: {0}\n'.format(e['title']))
+                self.removeFromList(e['id'])
+        return
 
     def removeFromList(self, id):
         os.system("deluge-console del " + id)
 
 
-class TransmissionAgent:
-    def __init__(self):
-        transmissionCmd = 'transmission-remote '
-        if TRANSMISSION_USER:
-            transmissionCmd = transmissionCmd + '-n ' + TRANSMISSION_USER
-            if TRANSMISSION_PASSWORD:
-                transmissionCmd = transmissionCmd + ':' + TRANSMISSION_PASSWORD
-            transmissionCmd = transmissionCmd + ' '
-        if TRANSMISSION_PORT:
-            transmissionCmd = transmissionCmd + '-p ' + TRANSMISSION_PORT + ' '
-        self.transmissionCmd = transmissionCmd
-
-    def downloadFromMagnet(self, magnet):
-        os.system(self.transmissionCmd + '-a ' + magnet)
-
-    def getCurrentList(self):
-        return os.popen(self.transmissionCmd + '-l').read()
-
-    def filterCompletedList(self, result):
-        outString = ''
-        resultlist = result.split('\n')
-        titlelist = resultlist[0]
-        resultlist = resultlist[1:-2]
-        completedlist = []
-        for entry in resultlist:
-            title = entry[titlelist.index('Name'):].strip()
-            status = entry[titlelist.index('Status'):titlelist.index('Name') - 1].strip()
-            progress = entry[titlelist.index('Done'):titlelist.index('Done') + 4].strip()
-            if progress == '100%':
-                titleid = entry[titlelist.index('ID'):titlelist.index('Done') - 1].strip()
-                completedlist.append(titleid)
-            outString += '이름: ' + title + '\n' + '상태:' + status + '\n'
-            if progress:
-                outString += '진행율:' + progress + '\n'
-            outString += '\n'
-        return (outString, completedlist)
-
-    def removeFromList(self, id):
-        os.system(self.transmissionCmd + '-t ' + id + ' -r')
-
-
 class Torrenter(telepot.helper.ChatHandler):
-    YES = '1. OK'
-    NO = '2. NO'
+    YES = '<OK>'
+    NO = '<NO>'
     MENU0 = '홈으로'
-    MENU1 = '1. 토렌트 검색'
+    MENU1 = '토렌트 검색'
     MENU1_1 = '키워드 받기'
     MENU1_2 = '토렌트 선택'
-    MENU2 = '2. 토렌트 리스트'
+    MENU2 = '토렌트 리스트'
     rssUrl = """https://torrentkim1.net/bbs/rss.php?k="""
-    GREETING = "안녕하세요. 메뉴를 선택해주세요."
+    GREETING = "메뉴를 선택해주세요."
+    global scheduler
     SubtitlesLocation = ''  # Option: Input your subtitle location to save subtitle files,
 
     mode = ''
     navi = feedparser.FeedParserDict()
-    completedlist = []
 
     def __init__(self, seed_tuple, timeout):
         super(Torrenter, self).__init__(seed_tuple, timeout)
@@ -102,11 +89,8 @@ class Torrenter(telepot.helper.ChatHandler):
 
     def createAgent(self, agentType):
         if agentType == 'deluge':
-            return DelugeAgent()
-        if agentType == 'transmission':
-            return TransmissionAgent()
+            return DelugeAgent(self.sender)
         raise ('invalid torrent client')
-        return None
 
     def open(self, initial_msg, seed):
         self.menu()
@@ -157,33 +141,23 @@ class Torrenter(telepot.helper.ChatHandler):
         index = int(selected.split('.')[0]) - 1
         magnet = self.navi.entries[index].link
         self.agent.downloadFromMagnet(magnet)
-        self.sender.sendMessage('다운로드를 시작합니다.')
+        self.sender.sendMessage('다운로드 시작')
         self.navi.clear()
+        if not scheduler.get_jobs():
+            scheduler.add_job(self.agent.check_torrents, 'interval', minutes=1)
         self.menu()
 
     def tor_show_list(self):
         self.mode = ''
         self.sender.sendMessage('토렌트 리스트를 확인중..')
-        outString = ''
-        # result = os.popen('deluge-console info').read()
         result = self.agent.getCurrentList()
         if not result:
             self.sender.sendMessage('진행중인 토렌트가 없습니다.')
             self.menu()
             return
-        (outString, completedlist) = self.agent.filterCompletedList(result)
-        self.completedlist = completedlist
-
-        self.sender.sendMessage(outString)
-        self.tor_del_list()
-
-    def tor_del_list(self):
-        self.mode = ''
-        self.sender.sendMessage('완료된 항목을 자동 정리중..')
-        for id in self.completedlist:
-            self.agent.removeFromList(id)
-        self.sender.sendMessage('완료')
-        self.menu()
+        outList = self.agent.parseList(result)
+        for e in outList:
+            self.sender.sendMessage(self.agent.printElement(e))
 
     def handle_command(self, command):
         if command == self.MENU0:
@@ -260,6 +234,8 @@ if not bool(config):
     print("Err: Setting file is not found")
     exit()
 getConfig(config)
+scheduler = BackgroundScheduler()
+scheduler.start()
 bot = telepot.DelegatorBot(TOKEN, [
     (per_chat_id(), create_open(Torrenter, timeout=120)),
 ])
