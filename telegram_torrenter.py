@@ -15,6 +15,7 @@ class DelugeAgent:
         self.STATUS_SEED = 'Seeding'
         self.STATUS_DOWN = 'Downloading'
         self.STATUS_ERR = 'Error'  # Need Verification
+        self.weightList = {}
         self.sender = sender
 
     def downloadFromMagnet(self, magnet):
@@ -24,7 +25,7 @@ class DelugeAgent:
         return os.popen('deluge-console info').read()
 
     def printElement(self, e):
-        outString = '이름: ' + e['title'] + '\n' + '상태:' + e['status'] + '\n'
+        outString = '이름: ' + e['title'] + '\n' + '상태: ' + e['status'] + '\n'
         outString += '진행율: ' + e['progress'] + '\n'
         outString += '\n'
         return outString
@@ -36,14 +37,29 @@ class DelugeAgent:
         for entry in result.split('\n \n'):
             title = entry[entry.index('Name:') + 6:entry.index('ID:') - 1]
             status = entry[entry.index('State:'):].split(' ')[1]
-            id = entry[entry.index('ID:') + 4:entry.index('State:') - 1]
+            ID = entry[entry.index('ID:') + 4:entry.index('State:') - 1]
             if status == self.STATUS_DOWN:
                 progress = entry[entry.index('Progress:') + 10:entry.index('% [') + 1]
             else:
                 progress = '0.00%'
-            element = {'title': title, 'status': status, 'id': id, 'progress': progress}
+            element = {'title': title, 'status': status, 'ID': ID, 'progress': progress}
             outList.append(element)
         return outList
+
+    def isOld(self, ID, progress):
+        """weightList = {ID:[%,w],..}"""
+        if ID in self.weightList:
+            if self.weightList[ID][0] == progress:
+                self.weightList[ID][1] += 1
+            else:
+                self.weightList[ID][0] = progress
+                self.weightList[ID][1] = 1
+            if self.weightList[ID][1] > 3:
+                return True
+        else: 
+            self.weightList[ID] = [progress, 1]
+            return False
+        return False
 
     def check_torrents(self):
         currentList = self.getCurrentList()
@@ -51,20 +67,24 @@ class DelugeAgent:
         if not bool(outList):
             self.sender.sendMessage('토렌트 리스트는 현재 비어 있습니다.')
             scheduler.remove_all_jobs()
+            self.weightList.clear()
             return
         for e in outList:
             if e['status'] == self.STATUS_SEED:
                 self.sender.sendMessage('다운로드 완료: {0}'.format(e['title']))
-                print("DBG: S check_torrents: SEED")
-                self.removeFromList(e['id'])
+                self.removeFromList(e['ID'])
             elif e['status'] == self.STATUS_ERR:
-                print("DBG: S check_torrents: ERR")
-                self.sender.sendMessage('오류로 다운로드 중지: {0}\n'.format(e['title']))
-                self.removeFromList(e['id'])
+                self.sender.sendMessage('다운로드 중지 (받을 수 없음): {0}\n'.format(e['title']))
+                self.removeFromList(e['ID'])
+            elif e['status'] == self.STATUS_DOWN:
+                if self.isOld(e['ID'], e['progress']):
+                    self.sender.sendMessage('다운로드 중지 (진행안됨): {0}\n'.format(e['title']))
+                    self.removeFromList(e['ID'])
         return
 
-    def removeFromList(self, id):
-        os.system("deluge-console del " + id)
+    def removeFromList(self, ID):
+        self.weightList.pop(ID)
+        os.system("deluge-console del " + ID)
 
 
 class Torrenter(telepot.helper.ChatHandler):
