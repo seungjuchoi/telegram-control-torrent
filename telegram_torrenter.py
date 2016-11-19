@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3.5
 import sys
 import os
 import feedparser
@@ -6,10 +6,9 @@ import telepot
 import json
 from urllib import parse
 from apscheduler.schedulers.background import BackgroundScheduler
-from telepot.delegate import per_chat_id, create_open
+from telepot.delegate import per_chat_id, create_open, pave_event_space
 
 CONFIG_FILE = 'setting.json'
-
 
 class DelugeAgent:
     def __init__(self, sender):
@@ -104,8 +103,8 @@ class Torrenter(telepot.helper.ChatHandler):
     mode = ''
     navi = feedparser.FeedParserDict()
 
-    def __init__(self, seed_tuple, timeout):
-        super(Torrenter, self).__init__(seed_tuple, timeout)
+    def __init__(self, *args, **kwargs):
+        super(Torrenter, self).__init__(*args, **kwargs)
         self.agent = self.createAgent(AGENT_TYPE)
 
     def createAgent(self, agentType):
@@ -258,6 +257,7 @@ getConfig(config)
 scheduler = BackgroundScheduler()
 scheduler.start()
 bot = telepot.DelegatorBot(TOKEN, [
-    (per_chat_id(), create_open(Torrenter, timeout=120)),
+    pave_event_space()(
+        per_chat_id(), create_open, Torrenter, timeout=120),
 ])
-bot.message_loop(run_forever=True)
+bot.message_loop(run_forever='Listening ...')
