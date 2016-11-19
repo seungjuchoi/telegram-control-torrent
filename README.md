@@ -8,7 +8,7 @@ You'd better check whether your deluge torrent system is working well before app
 For more details: http://deluge-torrent.org/
 
 
-## How to Setting
+## How to Config
 * token
 The token is a string along the lines of 110201543:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw that will be required to authorize the bot and send requests to the Bot API.
 * valid_users
