@@ -27,3 +27,6 @@ The token is a string along the lines of 110201543:AAHdqTcvCH1vGWJxfSeofSAs0K5PA
 * valid_users
 The user that is list up in valid_users can communicate with the telegram bot.
 Every Telegram user has own id string.
+
+### Run
+python3 telegram_torrent.py
