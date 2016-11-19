@@ -6,7 +6,7 @@ The Telegram Bot can control Deluge Torrent client
 Two packages (deluged, deluge-console) should be installed.
 For more details: http://deluge-torrent.org/
 ```bash
-$sudo apt-get install deluged, deluge-console
+$sudo apt-get install deluged deluge-console
 ```
 ### Write setting.json
 
