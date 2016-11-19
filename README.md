@@ -22,11 +22,13 @@ $sudo apt-get install deluged deluge-console
   }
 }
 ```
-* token
+* token *
 The token is a string along the lines of 110201543:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw that will be required to authorize the bot and send requests to the Bot API.
-* valid_users
+* valid_users *
 The user that is list up in valid_users can communicate with the telegram bot.
-Every Telegram user has own id string.
+Every Telegram user has own id string. put your telegram id into that
 
 ### Run
+```bash
 python3 telegram_torrent.py
+```
