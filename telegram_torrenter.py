@@ -4,6 +4,8 @@ import os
 import feedparser
 import telepot
 import json
+import random
+import string
 from urllib import parse
 from apscheduler.schedulers.background import BackgroundScheduler
 from telepot.delegate import per_chat_id, create_open, pave_event_space
@@ -18,9 +20,8 @@ class DelugeAgent:
         self.weightList = {}
         self.sender = sender
 
-    def downloadFromMagnet(self, magnet):
-        os.system("deluge-console add " + magnet)
-
+    def download(self, item):
+        os.system("deluge-console add " + item)
     def getCurrentList(self):
         return os.popen('deluge-console info').read()
 
@@ -98,7 +99,7 @@ class Torrenter(telepot.helper.ChatHandler):
     rssUrl = """https://torrentkim1.net/bbs/rss.php?k="""
     GREETING = "메뉴를 선택해주세요."
     global scheduler
-    SubtitlesLocation = ''  # Option: Input your subtitle location to save subtitle files,
+    DownloadFolder = ''  # Option: Input your subtitle location to save subtitle files,
 
     mode = ''
     navi = feedparser.FeedParserDict()
@@ -160,7 +161,7 @@ class Torrenter(telepot.helper.ChatHandler):
         self.mode = ''
         index = int(selected.split('.')[0]) - 1
         magnet = self.navi.entries[index].link
-        self.agent.downloadFromMagnet(magnet)
+        self.agent.download(magnet)
         self.sender.sendMessage('다운로드 시작')
         self.navi.clear()
         if not scheduler.get_jobs():
@@ -191,14 +192,29 @@ class Torrenter(telepot.helper.ChatHandler):
         elif self.mode == self.MENU1_2:  # Download Torrent
             self.tor_download(command)
 
-    def handle_smi(self, file_id, file_name):
+    def handle_smifile(self, file_id, file_name):
         try:
             self.sender.sendMessage('자막 저장중..')
-            bot.download_file(file_id, self.SubtitlesLocation + file_name)
+            bot.download_file(file_id, self.DownloadFolder + file_name)
         except Exception as inst:
             self.sender.sendMessage('오류: {0}'.format(inst))
             return
         self.sender.sendMessage('자막 파일을 저장했습니다.')
+
+    def handle_seedfile(self, file_id, file_name):
+        try:
+            self.sender.sendMessage('토렌트 파일 저장중..')
+            generated_file_path = self.DownloadFolder + \
+                    "".join(random.sample(string.ascii_letters,8)) + ".torrent"
+            bot.download_file(file_id, generated_file_path)
+            self.agent.download(generated_file_path)
+            os.system("rm "+generated_file_path)
+            if not scheduler.get_jobs():
+                scheduler.add_job(self.agent.check_torrents, 'interval', minutes=1)
+        except Exception as inst:
+            self.sender.sendMessage('오류: {0}'.format(inst))
+            return
+        self.sender.sendMessage('다운로드 시작')
 
     def on_message(self, msg):
         content_type, chat_type, chat_id = telepot.glance(msg)
@@ -215,7 +231,11 @@ class Torrenter(telepot.helper.ChatHandler):
             file_name = msg['document']['file_name']
             if file_name[-3:] == 'smi':
                 file_id = msg['document']['file_id']
-                self.handle_smi(file_id, file_name)
+                self.handle_smifile(file_id, file_name)
+                return
+            if file_name[-7:] == 'torrent':
+                file_id = msg['document']['file_id']
+                self.handle_seedfile(file_id, file_name)
                 return
             self.sender.sendMessage('인식할 수 없는 파일입니다.')
             return
