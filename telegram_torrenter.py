@@ -1,4 +1,4 @@
-#!/usr/bin/python3.5
+#!/usr/bin/python3
 import sys
 import os
 import feedparser
@@ -84,7 +84,8 @@ class DelugeAgent:
         return
 
     def removeFromList(self, ID):
-        self.weightList.pop(ID)
+        if ID in self.weightList:
+            del self.weightList[ID]
         os.system("deluge-console del " + ID)
 
 
@@ -95,7 +96,7 @@ class Torrenter(telepot.helper.ChatHandler):
     MENU1 = '토렌트 검색'
     MENU1_1 = '키워드 받기'
     MENU1_2 = '토렌트 선택'
-    MENU2 = '토렌트 리스트'
+    MENU2 = '토렌트 현황'
     rssUrl = """https://torrentkim1.net/bbs/rss.php?k="""
     GREETING = "메뉴를 선택해주세요."
     global scheduler
@@ -216,7 +217,7 @@ class Torrenter(telepot.helper.ChatHandler):
             return
         self.sender.sendMessage('다운로드 시작')
 
-    def on_message(self, msg):
+    def on_chat_message(self, msg):
         content_type, chat_type, chat_id = telepot.glance(msg)
         # Check ID
         if not chat_id in VALID_USERS:
