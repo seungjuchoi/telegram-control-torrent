@@ -105,6 +105,8 @@ class TransmissionAgent:
     def download(self, magnet):
         if TRANSMISSION_PORT:
             pcmd = '-p ' + TRANSMISSION_PORT + ' '
+        else:
+            pcmd = ''
         if DOWNLOAD_PATH:
             wcmd = '-w ' + DOWNLOAD_PATH + ' '
         else:
@@ -114,8 +116,6 @@ class TransmissionAgent:
     def getCurrentList(self):
         l = os.popen(self.transmissionCmd + '-l').read()
         rowList = l.split('\n')
-        print("DBG:")
-        print(len(rowList))
         if len(rowList) < 4:
             return
         else:
