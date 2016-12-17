@@ -1,0 +1,10 @@
+{
+  "common": {
+    "token": "110201543:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw",
+    "valid_users": [
+      123456789,
+      123456789
+    ],
+    "agent_type": "deluge"
+  }
+}
