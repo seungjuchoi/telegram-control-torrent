@@ -66,7 +66,7 @@ class DelugeAgent:
         currentList = self.getCurrentList()
         outList = self.parseList(currentList)
         if not bool(outList):
-            self.sender.sendMessage('토렌트 리스트는 현재 비어 있습니다.')
+            self.sender.sendMessage('The torrent List is empty')
             scheduler.remove_all_jobs()
             self.weightList.clear()
             return
@@ -105,7 +105,11 @@ class TransmissionAgent:
         self.transmissionCmd = cmd
 
     def download(self, magnet):
-        os.system(self.transmissionCmd + '-a ' + magnet)
+        if DOWNLOAD_PATH:
+            wcmd = '-w ' + DOWNLOAD_PATH + ' '
+        else:
+            wcmd = ''
+        os.system(self.transmissionCmd + wcmd + '-a ' + magnet)
 
     def getCurrentList(self):
         return os.popen(self.transmissionCmd + '-l').read()
@@ -128,12 +132,16 @@ class TransmissionAgent:
             status = entry[titlelist.index('Status'):titlelist.index('Name')-1].strip()
             progress = entry[titlelist.index('Done'):titlelist.index('Done')+4].strip()
             id_ = entry[titlelist.index('ID'):titlelist.index('Done')-1].strip()
+            if id_[-1:] == '*':
+                id_ = id_[:-1]
             element = {'title': title, 'status': status, 'ID': id_, 'progress': progress}
             outList.append(element)
         return outList
 
-    def removeFromList(self, id):
-        os.system(self.transmissionCmd + '-t '+ id + ' -r')
+    def removeFromList(self, ID):
+        if ID in self.weightList:
+            del self.weightList[ID]
+        os.system(self.transmissionCmd + '-t '+ ID + ' -r')
 
     def isOld(self, ID, progress):
         """weightList = {ID:[%,w],..}"""
@@ -154,7 +162,7 @@ class TransmissionAgent:
         currentList = self.getCurrentList()
         outList = self.parseList(currentList)
         if not bool(outList):
-            self.sender.sendMessage('Torrent List empty')
+            self.sender.sendMessage('The torrent List is empty')
             scheduler.remove_all_jobs()
             self.weightList.clear()
             return
@@ -166,6 +174,8 @@ class TransmissionAgent:
                 self.sender.sendMessage('Download canceled (Error): {0}\n'.format(e['title']))
                 self.removeFromList(e['ID'])
             else:
+                if self.weightList:
+                    print(self.weightList)
                 if self.isOld(e['ID'], e['progress']):
                     self.sender.sendMessage('Download canceled (pending): {0}\n'.format(e['title']))
                     self.removeFromList(e['ID'])
@@ -343,9 +353,11 @@ def getConfig(config):
     global TOKEN
     global AGENT_TYPE
     global VALID_USERS
+    global DOWNLOAD_PATH
     TOKEN = config['common']['token']
     AGENT_TYPE = config['common']['agent_type']
     VALID_USERS = config['common']['valid_users']
+    DOWNLOAD_PATH = config['common']['download_path']
     if AGENT_TYPE == 'transmission':
         global TRANSMISSION_ID_PW
         global TRANSMISSION_PORT

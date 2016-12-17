@@ -5,7 +5,8 @@
       123456789,
       123456789
     ],
-    "agent_type": "transmission"
+    "agent_type": "transmission",
+    "dowload_path": "~/Downloads"
   },
   "transmission": {
     "id_pw": "transmission:transmission",
