@@ -5,6 +5,9 @@
       123456789,
       123456789
     ],
-    "agent_type": "deluge"
-  }
+    "agent_type": "transmission"
+  },
+  "transmission": {
+    "id_pw": "transmission:transmission",
+    "port": ""
 }

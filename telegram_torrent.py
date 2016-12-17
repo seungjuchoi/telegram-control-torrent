@@ -75,11 +75,11 @@ class DelugeAgent:
                 self.sender.sendMessage('다운로드 완료: {0}'.format(e['title']))
                 self.removeFromList(e['ID'])
             elif e['status'] == self.STATUS_ERR:
-                self.sender.sendMessage('다운로드 중지 (받을 수 없음): {0}\n'.format(e['title']))
+                self.sender.sendMessage('다운로드 중지 (Error): {0}\n'.format(e['title']))
                 self.removeFromList(e['ID'])
             elif e['status'] == self.STATUS_DOWN:
                 if self.isOld(e['ID'], e['progress']):
-                    self.sender.sendMessage('다운로드 중지 (진행안됨): {0}\n'.format(e['title']))
+                    self.sender.sendMessage('다운로드 중지 (Pending): {0}\n'.format(e['title']))
                     self.removeFromList(e['ID'])
         return
 
@@ -87,6 +87,89 @@ class DelugeAgent:
         if ID in self.weightList:
             del self.weightList[ID]
         os.system("deluge-console del " + ID)
+
+
+class TransmissionAgent:
+    def __init__(self, sender):
+        self.STATUS_SEED = 'Seeding'
+        self.STATUS_ERR = 'Error'  # Need Verification
+        self.weightList = {}
+        self.sender = sender
+        cmd = 'transmission-remote '
+        if TRANSMISSION_ID_PW:
+            cmd = cmd + '-n ' + TRANSMISSION_ID_PW + ' '
+        else:
+            cmd = cmd + '-n ' + 'transmission:transmission' +' '
+        if TRANSMISSION_PORT:
+            cmd = cmd + '-p ' + TRANSMISSION_PORT + ' '
+        self.transmissionCmd = cmd
+
+    def download(self, magnet):
+        os.system(self.transmissionCmd + '-a ' + magnet)
+
+    def getCurrentList(self):
+        return os.popen(self.transmissionCmd + '-l').read()
+
+    def printElement(self, e):
+        outString = '이름: ' + e['title'] + '\n' + '상태: ' + e['status'] + '\n'
+        outString += '진행율: ' + e['progress'] + '\n'
+        outString += '\n'
+        return outString
+
+    def parseList(self, result):
+        if not result:
+            return
+        outList = []
+        resultlist = result.split('\n')
+        titlelist = resultlist[0]
+        resultlist = resultlist[1:-2]
+        for entry in resultlist:
+            title = entry[titlelist.index('Name'):].strip()
+            status = entry[titlelist.index('Status'):titlelist.index('Name')-1].strip()
+            progress = entry[titlelist.index('Done'):titlelist.index('Done')+4].strip()
+            id_ = entry[titlelist.index('ID'):titlelist.index('Done')-1].strip()
+            element = {'title': title, 'status': status, 'ID': id_, 'progress': progress}
+            outList.append(element)
+        return outList
+
+    def removeFromList(self, id):
+        os.system(self.transmissionCmd + '-t '+ id + ' -r')
+
+    def isOld(self, ID, progress):
+        """weightList = {ID:[%,w],..}"""
+        if ID in self.weightList:
+            if self.weightList[ID][0] == progress:
+                self.weightList[ID][1] += 1
+            else:
+                self.weightList[ID][0] = progress
+                self.weightList[ID][1] = 1
+            if self.weightList[ID][1] > 3:
+                return True
+        else: 
+            self.weightList[ID] = [progress, 1]
+            return False
+        return False
+
+    def check_torrents(self):
+        currentList = self.getCurrentList()
+        outList = self.parseList(currentList)
+        if not bool(outList):
+            self.sender.sendMessage('Torrent List empty')
+            scheduler.remove_all_jobs()
+            self.weightList.clear()
+            return
+        for e in outList:
+            if e['status'] == self.STATUS_SEED:
+                self.sender.sendMessage('Download completed: {0}'.format(e['title']))
+                self.removeFromList(e['ID'])
+            elif e['status'] == self.STATUS_ERR:
+                self.sender.sendMessage('Download canceled (Error): {0}\n'.format(e['title']))
+                self.removeFromList(e['ID'])
+            else:
+                if self.isOld(e['ID'], e['progress']):
+                    self.sender.sendMessage('Download canceled (pending): {0}\n'.format(e['title']))
+                    self.removeFromList(e['ID'])
+        return
 
 
 class Torrenter(telepot.helper.ChatHandler):
@@ -112,6 +195,8 @@ class Torrenter(telepot.helper.ChatHandler):
     def createAgent(self, agentType):
         if agentType == 'deluge':
             return DelugeAgent(self.sender)
+        if agentType == 'transmission':
+            return TransmissionAgent(self.sender)
         raise ('invalid torrent client')
 
     def open(self, initial_msg, seed):
@@ -262,12 +347,10 @@ def getConfig(config):
     AGENT_TYPE = config['common']['agent_type']
     VALID_USERS = config['common']['valid_users']
     if AGENT_TYPE == 'transmission':
-        global transmission_user
-        global transmission_password
-        global transmission_port
-        TRANSMISSION_USER = config['for_transmission']['transmission_user']
-        TRANSMISSION_PASSWORD = config['for_transmission']['transmission_password']
-        TRANSMISSION_PORT = config['for_transmission']['transmission_port']
+        global TRANSMISSION_ID_PW
+        global TRANSMISSION_PORT
+        TRANSMISSION_ID_PW = config['transmission']['id_pw']
+        TRANSMISSION_PORT = config['transmission']['port']
 
 
 config = parseConfig(CONFIG_FILE)
