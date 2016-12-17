@@ -26,8 +26,8 @@ class DelugeAgent:
         return os.popen('deluge-console info').read()
 
     def printElement(self, e):
-        outString = '이름: ' + e['title'] + '\n' + '상태: ' + e['status'] + '\n'
-        outString += '진행율: ' + e['progress'] + '\n'
+        outString = 'NAME: ' + e['title'] + '\n' + 'STATUS: ' + e['status'] + '\n'
+        outString += 'PROGRESS: ' + e['progress'] + '\n'
         outString += '\n'
         return outString
 
@@ -72,14 +72,14 @@ class DelugeAgent:
             return
         for e in outList:
             if e['status'] == self.STATUS_SEED:
-                self.sender.sendMessage('다운로드 완료: {0}'.format(e['title']))
+                self.sender.sendMessage('Download completed: {0}'.format(e['title']))
                 self.removeFromList(e['ID'])
             elif e['status'] == self.STATUS_ERR:
-                self.sender.sendMessage('다운로드 중지 (Error): {0}\n'.format(e['title']))
+                self.sender.sendMessage('Download canceled (Error): {0}\n'.format(e['title']))
                 self.removeFromList(e['ID'])
-            elif e['status'] == self.STATUS_DOWN:
+            else:
                 if self.isOld(e['ID'], e['progress']):
-                    self.sender.sendMessage('다운로드 중지 (Pending): {0}\n'.format(e['title']))
+                    self.sender.sendMessage('Download canceled (pending): {0}\n'.format(e['title']))
                     self.removeFromList(e['ID'])
         return
 
@@ -100,23 +100,30 @@ class TransmissionAgent:
             cmd = cmd + '-n ' + TRANSMISSION_ID_PW + ' '
         else:
             cmd = cmd + '-n ' + 'transmission:transmission' +' '
-        if TRANSMISSION_PORT:
-            cmd = cmd + '-p ' + TRANSMISSION_PORT + ' '
         self.transmissionCmd = cmd
 
     def download(self, magnet):
+        if TRANSMISSION_PORT:
+            pcmd = '-p ' + TRANSMISSION_PORT + ' '
         if DOWNLOAD_PATH:
             wcmd = '-w ' + DOWNLOAD_PATH + ' '
         else:
             wcmd = ''
-        os.system(self.transmissionCmd + wcmd + '-a ' + magnet)
+        os.system(self.transmissionCmd + pcmd + wcmd + '-a ' + magnet)
 
     def getCurrentList(self):
-        return os.popen(self.transmissionCmd + '-l').read()
+        l = os.popen(self.transmissionCmd + '-l').read()
+        rowList = l.split('\n')
+        print("DBG:")
+        print(len(rowList))
+        if len(rowList) < 4:
+            return
+        else:
+            return l
 
     def printElement(self, e):
-        outString = '이름: ' + e['title'] + '\n' + '상태: ' + e['status'] + '\n'
-        outString += '진행율: ' + e['progress'] + '\n'
+        outString = 'NAME: ' + e['title'] + '\n' + 'STATUS: ' + e['status'] + '\n'
+        outString += 'PROGRESS: ' + e['progress'] + '\n'
         outString += '\n'
         return outString
 
@@ -174,8 +181,6 @@ class TransmissionAgent:
                 self.sender.sendMessage('Download canceled (Error): {0}\n'.format(e['title']))
                 self.removeFromList(e['ID'])
             else:
-                if self.weightList:
-                    print(self.weightList)
                 if self.isOld(e['ID'], e['progress']):
                     self.sender.sendMessage('Download canceled (pending): {0}\n'.format(e['title']))
                     self.removeFromList(e['ID'])
@@ -185,13 +190,13 @@ class TransmissionAgent:
 class Torrenter(telepot.helper.ChatHandler):
     YES = '<OK>'
     NO = '<NO>'
-    MENU0 = '홈으로'
-    MENU1 = '토렌트 검색'
-    MENU1_1 = '키워드 받기'
-    MENU1_2 = '토렌트 선택'
-    MENU2 = '토렌트 현황'
+    MENU0 = 'HOME'
+    MENU1 = 'SEARCH TORRENT'
+    MENU1_1 = 'INPUT A WORD'
+    MENU1_2 = 'CHOOSE AN ITEM'
+    MENU2 = 'TORRENT LIST'
     rssUrl = """https://torrentkim1.net/bbs/rss.php?k="""
-    GREETING = "메뉴를 선택해주세요."
+    GREETING = "SELECT MENU"
     global scheduler
     DownloadFolder = ''  # Option: Input your subtitle location to save subtitle files,
 
@@ -223,7 +228,7 @@ class Torrenter(telepot.helper.ChatHandler):
 
     def tor_get_keyword(self):
         self.mode = self.MENU1_1
-        self.sender.sendMessage('검색 키워드를 입력하세요.')
+        self.sender.sendMessage('Enter a Keyword')
 
     def put_menu_button(self, l):
         menulist = [self.MENU0]
@@ -232,12 +237,12 @@ class Torrenter(telepot.helper.ChatHandler):
 
     def tor_search(self, keyword):
         self.mode = ''
-        self.sender.sendMessage('토렌트 검색중..')
+        self.sender.sendMessage('Searching torrent..')
         self.navi = feedparser.parse(self.rssUrl + parse.quote(keyword))
 
         outList = []
         if not self.navi.entries:
-            self.sender.sendMessage('검색결과가 없습니다. 다시 입력하세요.')
+            self.sender.sendMessage('Sorry, No results')
             self.mode = self.MENU1_1
             return
 
@@ -250,7 +255,7 @@ class Torrenter(telepot.helper.ChatHandler):
             outList.append(templist)
 
         show_keyboard = {'keyboard': self.put_menu_button(outList)}
-        self.sender.sendMessage('아래에서 선택하세요.', reply_markup=show_keyboard)
+        self.sender.sendMessage('Choose one from below', reply_markup=show_keyboard)
         self.mode = self.MENU1_2
 
     def tor_download(self, selected):
@@ -258,7 +263,7 @@ class Torrenter(telepot.helper.ChatHandler):
         index = int(selected.split('.')[0]) - 1
         magnet = self.navi.entries[index].link
         self.agent.download(magnet)
-        self.sender.sendMessage('다운로드 시작')
+        self.sender.sendMessage('Start Downloading')
         self.navi.clear()
         if not scheduler.get_jobs():
             scheduler.add_job(self.agent.check_torrents, 'interval', minutes=1)
@@ -266,10 +271,10 @@ class Torrenter(telepot.helper.ChatHandler):
 
     def tor_show_list(self):
         self.mode = ''
-        self.sender.sendMessage('토렌트 리스트를 확인중..')
+        self.sender.sendMessage('Let me check the torrent list..')
         result = self.agent.getCurrentList()
         if not result:
-            self.sender.sendMessage('진행중인 토렌트가 없습니다.')
+            self.sender.sendMessage('The torrent list is empty')
             self.menu()
             return
         outList = self.agent.parseList(result)
@@ -290,16 +295,16 @@ class Torrenter(telepot.helper.ChatHandler):
 
     def handle_smifile(self, file_id, file_name):
         try:
-            self.sender.sendMessage('자막 저장중..')
+            self.sender.sendMessage('Saving subtitle file..')
             bot.download_file(file_id, self.DownloadFolder + file_name)
         except Exception as inst:
-            self.sender.sendMessage('오류: {0}'.format(inst))
+            self.sender.sendMessage('ERORR: {0}'.format(inst))
             return
-        self.sender.sendMessage('자막 파일을 저장했습니다.')
+        self.sender.sendMessage('Done')
 
     def handle_seedfile(self, file_id, file_name):
         try:
-            self.sender.sendMessage('토렌트 파일 저장중..')
+            self.sender.sendMessage('Saving torrent file..')
             generated_file_path = self.DownloadFolder + \
                     "".join(random.sample(string.ascii_letters,8)) + ".torrent"
             bot.download_file(file_id, generated_file_path)
@@ -308,9 +313,9 @@ class Torrenter(telepot.helper.ChatHandler):
             if not scheduler.get_jobs():
                 scheduler.add_job(self.agent.check_torrents, 'interval', minutes=1)
         except Exception as inst:
-            self.sender.sendMessage('오류: {0}'.format(inst))
+            self.sender.sendMessage('ERORR: {0}'.format(inst))
             return
-        self.sender.sendMessage('다운로드 시작')
+        self.sender.sendMessage('Start Downloading')
 
     def on_chat_message(self, msg):
         content_type, chat_type, chat_id = telepot.glance(msg)
@@ -333,10 +338,10 @@ class Torrenter(telepot.helper.ChatHandler):
                 file_id = msg['document']['file_id']
                 self.handle_seedfile(file_id, file_name)
                 return
-            self.sender.sendMessage('인식할 수 없는 파일입니다.')
+            self.sender.sendMessage('Invalid File')
             return
 
-        self.sender.sendMessage('인식하지 못했습니다')
+        self.sender.sendMessage('Invalid File')
 
     def on_close(self, exception):
         pass
