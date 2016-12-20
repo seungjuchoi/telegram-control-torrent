@@ -12,7 +12,9 @@ from telepot.delegate import per_chat_id, create_open, pave_event_space
 
 CONFIG_FILE = 'setting.json'
 
+
 class DelugeAgent:
+
     def __init__(self, sender):
         self.STATUS_SEED = 'Seeding'
         self.STATUS_DOWN = 'Downloading'
@@ -22,11 +24,13 @@ class DelugeAgent:
 
     def download(self, item):
         os.system("deluge-console add " + item)
+
     def getCurrentList(self):
         return os.popen('deluge-console info').read()
 
     def printElement(self, e):
-        outString = 'NAME: ' + e['title'] + '\n' + 'STATUS: ' + e['status'] + '\n'
+        outString = 'NAME: ' + e['title'] + \
+            '\n' + 'STATUS: ' + e['status'] + '\n'
         outString += 'PROGRESS: ' + e['progress'] + '\n'
         outString += '\n'
         return outString
@@ -40,10 +44,12 @@ class DelugeAgent:
             status = entry[entry.index('State:'):].split(' ')[1]
             ID = entry[entry.index('ID:') + 4:entry.index('State:') - 1]
             if status == self.STATUS_DOWN:
-                progress = entry[entry.index('Progress:') + 10:entry.index('% [') + 1]
+                progress = entry[entry.index(
+                    'Progress:') + 10:entry.index('% [') + 1]
             else:
                 progress = '0.00%'
-            element = {'title': title, 'status': status, 'ID': ID, 'progress': progress}
+            element = {'title': title, 'status': status,
+                       'ID': ID, 'progress': progress}
             outList.append(element)
         return outList
 
@@ -57,7 +63,7 @@ class DelugeAgent:
                 self.weightList[ID][1] = 1
             if self.weightList[ID][1] > 3:
                 return True
-        else: 
+        else:
             self.weightList[ID] = [progress, 1]
             return False
         return False
@@ -72,14 +78,17 @@ class DelugeAgent:
             return
         for e in outList:
             if e['status'] == self.STATUS_SEED:
-                self.sender.sendMessage('Download completed: {0}'.format(e['title']))
+                self.sender.sendMessage(
+                    'Download completed: {0}'.format(e['title']))
                 self.removeFromList(e['ID'])
             elif e['status'] == self.STATUS_ERR:
-                self.sender.sendMessage('Download canceled (Error): {0}\n'.format(e['title']))
+                self.sender.sendMessage(
+                    'Download canceled (Error): {0}\n'.format(e['title']))
                 self.removeFromList(e['ID'])
             else:
                 if self.isOld(e['ID'], e['progress']):
-                    self.sender.sendMessage('Download canceled (pending): {0}\n'.format(e['title']))
+                    self.sender.sendMessage(
+                        'Download canceled (pending): {0}\n'.format(e['title']))
                     self.removeFromList(e['ID'])
         return
 
@@ -90,6 +99,7 @@ class DelugeAgent:
 
 
 class TransmissionAgent:
+
     def __init__(self, sender):
         self.STATUS_SEED = 'Seeding'
         self.STATUS_ERR = 'Error'  # Need Verification
@@ -99,7 +109,7 @@ class TransmissionAgent:
         if TRANSMISSION_ID_PW:
             cmd = cmd + '-n ' + TRANSMISSION_ID_PW + ' '
         else:
-            cmd = cmd + '-n ' + 'transmission:transmission' +' '
+            cmd = cmd + '-n ' + 'transmission:transmission' + ' '
         self.transmissionCmd = cmd
 
     def download(self, magnet):
@@ -122,7 +132,8 @@ class TransmissionAgent:
             return l
 
     def printElement(self, e):
-        outString = 'NAME: ' + e['title'] + '\n' + 'STATUS: ' + e['status'] + '\n'
+        outString = 'NAME: ' + e['title'] + \
+            '\n' + 'STATUS: ' + e['status'] + '\n'
         outString += 'PROGRESS: ' + e['progress'] + '\n'
         outString += '\n'
         return outString
@@ -136,19 +147,23 @@ class TransmissionAgent:
         resultlist = resultlist[1:-2]
         for entry in resultlist:
             title = entry[titlelist.index('Name'):].strip()
-            status = entry[titlelist.index('Status'):titlelist.index('Name')-1].strip()
-            progress = entry[titlelist.index('Done'):titlelist.index('Done')+4].strip()
-            id_ = entry[titlelist.index('ID'):titlelist.index('Done')-1].strip()
+            status = entry[titlelist.index(
+                'Status'):titlelist.index('Name') - 1].strip()
+            progress = entry[titlelist.index(
+                'Done'):titlelist.index('Done') + 4].strip()
+            id_ = entry[titlelist.index(
+                'ID'):titlelist.index('Done') - 1].strip()
             if id_[-1:] == '*':
                 id_ = id_[:-1]
-            element = {'title': title, 'status': status, 'ID': id_, 'progress': progress}
+            element = {'title': title, 'status': status,
+                       'ID': id_, 'progress': progress}
             outList.append(element)
         return outList
 
     def removeFromList(self, ID):
         if ID in self.weightList:
             del self.weightList[ID]
-        os.system(self.transmissionCmd + '-t '+ ID + ' -r')
+        os.system(self.transmissionCmd + '-t ' + ID + ' -r')
 
     def isOld(self, ID, progress):
         """weightList = {ID:[%,w],..}"""
@@ -160,7 +175,7 @@ class TransmissionAgent:
                 self.weightList[ID][1] = 1
             if self.weightList[ID][1] > 3:
                 return True
-        else: 
+        else:
             self.weightList[ID] = [progress, 1]
             return False
         return False
@@ -175,14 +190,17 @@ class TransmissionAgent:
             return
         for e in outList:
             if e['status'] == self.STATUS_SEED:
-                self.sender.sendMessage('Download completed: {0}'.format(e['title']))
+                self.sender.sendMessage(
+                    'Download completed: {0}'.format(e['title']))
                 self.removeFromList(e['ID'])
             elif e['status'] == self.STATUS_ERR:
-                self.sender.sendMessage('Download canceled (Error): {0}\n'.format(e['title']))
+                self.sender.sendMessage(
+                    'Download canceled (Error): {0}\n'.format(e['title']))
                 self.removeFromList(e['ID'])
             else:
                 if self.isOld(e['ID'], e['progress']):
-                    self.sender.sendMessage('Download canceled (pending): {0}\n'.format(e['title']))
+                    self.sender.sendMessage(
+                        'Download canceled (pending): {0}\n'.format(e['title']))
                     self.removeFromList(e['ID'])
         return
 
@@ -219,7 +237,8 @@ class Torrenter(telepot.helper.ChatHandler):
 
     def menu(self):
         mode = ''
-        show_keyboard = {'keyboard': [[self.MENU1], [self.MENU2], [self.MENU0]]}
+        show_keyboard = {'keyboard': [
+            [self.MENU1], [self.MENU2], [self.MENU0]]}
         self.sender.sendMessage(self.GREETING, reply_markup=show_keyboard)
 
     def yes_or_no(self, comment):
@@ -247,7 +266,8 @@ class Torrenter(telepot.helper.ChatHandler):
             return
 
         for (i, entry) in enumerate(self.navi.entries):
-            if i == 10: break
+            if i == 10:
+                break
             title = str(i + 1) + ". " + entry.title
 
             templist = []
@@ -255,7 +275,8 @@ class Torrenter(telepot.helper.ChatHandler):
             outList.append(templist)
 
         show_keyboard = {'keyboard': self.put_menu_button(outList)}
-        self.sender.sendMessage('Choose one from below', reply_markup=show_keyboard)
+        self.sender.sendMessage('Choose one from below',
+                                reply_markup=show_keyboard)
         self.mode = self.MENU1_2
 
     def tor_download(self, selected):
@@ -306,12 +327,13 @@ class Torrenter(telepot.helper.ChatHandler):
         try:
             self.sender.sendMessage('Saving torrent file..')
             generated_file_path = self.DownloadFolder + \
-                    "".join(random.sample(string.ascii_letters,8)) + ".torrent"
+                "".join(random.sample(string.ascii_letters, 8)) + ".torrent"
             bot.download_file(file_id, generated_file_path)
             self.agent.download(generated_file_path)
-            os.system("rm "+generated_file_path)
+            os.system("rm " + generated_file_path)
             if not scheduler.get_jobs():
-                scheduler.add_job(self.agent.check_torrents, 'interval', minutes=1)
+                scheduler.add_job(self.agent.check_torrents,
+                                  'interval', minutes=1)
         except Exception as inst:
             self.sender.sendMessage('ERORR: {0}'.format(inst))
             return
