@@ -90,3 +90,6 @@ ENV/
 
 # Setting file
 setting.json
+
+# Ctags
+tags
