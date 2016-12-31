@@ -6,9 +6,10 @@
       123456789
     ],
     "agent_type": "transmission",
-    "dowload_path": "~/Downloads"
+    "download_path": "~/Downloads"
   },
   "transmission": {
     "id_pw": "transmission:transmission",
     "port": ""
+  }
 }
