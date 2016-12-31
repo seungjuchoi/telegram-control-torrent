@@ -26,6 +26,10 @@ ex)
 * valid_users: The user that is list up in valid_users can communicate with the telegram bot.
 Every Telegram user has own id string. put your telegram id into that
 
+### Install python package
+```bash
+pip3 install -r pip-requirements.txt
+```
 ### Run
 ```bash
 python3 telegram_torrent.py
