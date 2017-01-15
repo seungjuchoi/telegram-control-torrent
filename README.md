@@ -2,9 +2,22 @@
 The Telegram Bot can control a Transmission as Torrent machine
 
 ## Notice
-- Only use in korea because the site for torrent seed is in korea. so the result of search may have depend on korean contents
+- Only use in korea because the site for torrent seed is in korea. so the result of search may depend on korean contents
 
 ## How to Use
+### Torrent client
+- You can choose torrent client if you modify agent_type section in setting json. 
+- We support two type clients: Deluge, Transmission
+
+### Install Deluge
+```bash
+$sudo apt-get install deluge-common deluged deluge-console
+```
+then execute the below
+```bash
+$ deluged
+```
+
 ### Install Transmission 
 ```bash
 $sudo apt-get install transmission-cli transmission-common transmission-daemon
@@ -21,7 +34,12 @@ ex)
       123456789,
       123456789
     ],
-    "agent_type": "transmission"
+    "agent_type": "transmission",
+    "download_path": "~/Downloads"
+  }
+  "transmission": {
+    "id_pw": "transmission:transmission",
+    "port": ""
   }
 }
 ```
