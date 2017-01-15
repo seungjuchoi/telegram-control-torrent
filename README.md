@@ -36,7 +36,7 @@ ex)
     ],
     "agent_type": "transmission",
     "download_path": "~/Downloads"
-  }
+  },
   "transmission": {
     "id_pw": "transmission:transmission",
     "port": ""
