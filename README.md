@@ -1,5 +1,5 @@
 # Telegram-control-transmission
-The Telegram Bot can control a Transmission as Torrent machine
+The Telegram Bot can control a Torrent client for downloading and searching
 
 ## Notice
 - Only use in korea because the site for torrent seed is in korea. so the result of search may depend on korean contents
