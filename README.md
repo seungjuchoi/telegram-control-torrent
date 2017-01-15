@@ -1,6 +1,9 @@
 # Telegram-control-transmission
 The Telegram Bot can control a Transmission as Torrent machine
 
+## Notice
+- Only use in korea because the site for torrent seed is in korea. so the result of search may have depend on korean contents
+
 ## How to Use
 ### Install Transmission 
 ```bash
