@@ -1,4 +1,4 @@
-# Telegram-control-transmission
+# Telegram-control-torrent
 The Telegram Bot can control a Torrent client for downloading and searching
 
 ## Notice
