@@ -370,7 +370,8 @@ class Torrenter(telepot.helper.ChatHandler):
 
 
 def parseConfig(filename):
-    f = open(filename, 'r')
+    path = os.path.dirname(os.path.realpath(__file__)) + '/' + filename
+    f = open(path, 'r')
     js = json.loads(f.read())
     f.close()
     return js
