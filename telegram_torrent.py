@@ -6,12 +6,12 @@ import telepot
 import json
 import random
 import string
+from os.path import expanduser
 from urllib import parse
 from apscheduler.schedulers.background import BackgroundScheduler
 from telepot.delegate import per_chat_id, create_open, pave_event_space
 
 CONFIG_FILE = 'setting.json'
-
 
 class DelugeAgent:
 
@@ -216,7 +216,7 @@ class Torrenter(telepot.helper.ChatHandler):
     rssUrl = """https://torrentkim1.net/bbs/rss.php?k="""
     GREETING = "SELECT MENU"
     global scheduler
-    DownloadFolder = ''  # Option: Input your subtitle location to save subtitle files,
+    global DOWNLOAD_PATH
 
     mode = ''
     navi = feedparser.FeedParserDict()
@@ -317,7 +317,7 @@ class Torrenter(telepot.helper.ChatHandler):
     def handle_smifile(self, file_id, file_name):
         try:
             self.sender.sendMessage('Saving subtitle file..')
-            bot.download_file(file_id, self.DownloadFolder + file_name)
+            bot.download_file(file_id, DOWNLOAD_PATH + file_name)
         except Exception as inst:
             self.sender.sendMessage('ERORR: {0}'.format(inst))
             return
@@ -326,7 +326,7 @@ class Torrenter(telepot.helper.ChatHandler):
     def handle_seedfile(self, file_id, file_name):
         try:
             self.sender.sendMessage('Saving torrent file..')
-            generated_file_path = self.DownloadFolder + \
+            generated_file_path = DOWNLOAD_PATH + "/" + \
                 "".join(random.sample(string.ascii_letters, 8)) + ".torrent"
             bot.download_file(file_id, generated_file_path)
             self.agent.download(generated_file_path)
@@ -386,6 +386,8 @@ def getConfig(config):
     AGENT_TYPE = config['common']['agent_type']
     VALID_USERS = config['common']['valid_users']
     DOWNLOAD_PATH = config['common']['download_path']
+    if DOWNLOAD_PATH[0] == '~':
+        DOWNLOAD_PATH = expanduser('~') + DOWNLOAD_PATH[1:]
     if AGENT_TYPE == 'transmission':
         global TRANSMISSION_ID_PW
         global TRANSMISSION_PORT
