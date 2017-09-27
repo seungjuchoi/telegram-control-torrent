@@ -254,6 +254,14 @@ class Torrenter(telepot.helper.ChatHandler):
         l.append(menulist)
         return l
 
+    def isDiskEnough(self):
+        stat = os.statvfs(DOWNLOAD_PATH)
+        freesize = (stat.f_bavail*stat.f_bsize)/(10**9)
+        if (freesize < 6):
+            self.sender.sendMessage('Error: The Disk size is under 6GB: {}GB'.format(freesize))
+            return False
+        return True
+
     def tor_search(self, keyword):
         self.mode = ''
         self.sender.sendMessage('Searching torrent..')
@@ -281,6 +289,9 @@ class Torrenter(telepot.helper.ChatHandler):
 
     def tor_download(self, selected):
         self.mode = ''
+        if not self.isDiskEnough():
+            self.menu()
+            return
         index = int(selected.split('.')[0]) - 1
         magnet = self.navi.entries[index].link
         self.agent.download(magnet)
