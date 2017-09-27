@@ -6,8 +6,7 @@ The Telegram Bot can control a Torrent client for downloading and searching
 
 ## How to Use
 ### Torrent client
-- You can choose torrent client if you modify agent_type section in setting json. 
-- We support two type clients: Deluge, Transmission
+- It can support Deluge torrent client.
 
 ### Install Deluge
 ```bash
